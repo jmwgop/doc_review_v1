@@ -7,7 +7,8 @@ components:
   name: doc_dropdown
   properties: {}
   type: form:dep_lin1x4oec0ytd:_Components.DropdownMenu
-- layout_properties: {grid_position: 'APVFBX,IXNMNA'}
+- event_bindings: {click: load_btn_click}
+  layout_properties: {grid_position: 'APVFBX,IXNMNA'}
   name: load_btn
   properties: {align: center, icon_align: left, text: Load Document}
   type: form:dep_lin1x4oec0ytd:_Components.Button

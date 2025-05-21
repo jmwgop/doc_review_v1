@@ -13,7 +13,7 @@ components:
       spacing_above: none
       spacing_below: none
     type: ColumnPanel
-  layout_properties: {grid_position: 'ADUEGI,SVINGS'}
+  layout_properties: {full_width_row: true, grid_position: 'ADUEGI,SVINGS'}
   name: review_grid
   properties:
     spacing:
