@@ -8,7 +8,7 @@ components:
     name: json_table_grid
     properties: {}
     type: DataGrid
-  layout_properties: {full_width_row: true, grid_position: 'IOFDKA,GGGDZE'}
+  layout_properties: {full_width_row: false, grid_position: 'IOFDKA,GGGDZE'}
   name: container
   properties: {}
   type: ColumnPanel

@@ -1,5 +1,4 @@
-# json_renderer.py
-
+# client_code/MainReviewForm/json_renderer.py
 from anvil import *
 
 def flatten_dict(d, parent_key='', sep='_'):
@@ -27,11 +26,10 @@ def render_json(value, container, label=None):
   # 1. Scalars (str, int, float, bool, None)
   if isinstance(value, (str, int, float, bool)) or value is None:
     vstr = "" if value is None else str(value)
-    # Long strings or multiline: textarea, else textbox
     if isinstance(value, str) and (len(value) > 80 or '\n' in value):
-      container.add_component(TextArea(text=vstr, width="24em"))
+      container.add_component(TextArea(text=vstr))
     else:
-      container.add_component(TextBox(text=vstr, width="16em"))
+      container.add_component(TextBox(text=vstr))
     return
 
   # 2. Dicts
@@ -44,76 +42,47 @@ def render_json(value, container, label=None):
   if isinstance(value, list):
     # List of dicts (table-like structure)
     if value and isinstance(value[0], dict):
-      # Flatten all rows to get all possible columns
       flat_rows = [flatten_dict(row) for row in value]
-      all_keys = set()
-      for row in flat_rows:
-        all_keys.update(row.keys())
-      keys = sorted(all_keys)
-
-      # Calculate total width needed for all columns
+      keys = sorted({k for row in flat_rows for k in row})
       total_width = len(keys) * 16  # 16em per column
 
-      # Create outer container with horizontal scroll
-      table_container = ColumnPanel()
-      table_container.role = "table-scroll"
-      table_container.width = "100%"
+      # --- NEW: scroll wrapper -------------------------------------------------
+      # --- scroll wrapper stays ---
+      # scrollable wrapper
+      scroll_wrapper = FlowPanel(role="table-scroll", width="100%")
 
-      # Create a horizontal container for header row with FIXED WIDTH
-      header_row = FlowPanel()
-      header_row.spacing_above = "none"
-      header_row.spacing_below = "none"
-      header_row.width = f"{total_width}em"  # Force width to accommodate all columns
+      table_container = ColumnPanel()        # no fixed width
 
-      # Add header cells
+      # ─── Header ───────────────────────────────────────────────────────────────
+      header_row = FlowPanel(spacing_above="none", spacing_below="none")
       for key in keys:
-        header_row.add_component(Label(
-          text=key.capitalize().replace('_', ' '), 
-          bold=True, 
-          underline=True, 
-          width="16em",
-          spacing_above="none",
-          spacing_below="none"
-        ))
-
-      # Add header row to table
+        header_row.add_component(
+          Label(text=key.capitalize().replace('_', ' '),
+                bold=True, underline=True,
+                spacing_above="none", spacing_below="none")   # ← no width
+        )
       table_container.add_component(header_row)
 
-      # Create and add data rows with FIXED WIDTH
+      # ─── Data rows ────────────────────────────────────────────────────────────
       for row in flat_rows:
-        data_row = FlowPanel()
-        data_row.spacing_above = "none"
-        data_row.spacing_below = "none"
-        data_row.width = f"{total_width}em"  # Force width to accommodate all columns
-
+        data_row = FlowPanel(spacing_above="none", spacing_below="none")
         for key in keys:
           cell = row.get(key, "")
-          # Editable cell logic
-          if isinstance(cell, str) and (len(cell) > 80 or '\n' in cell):
-            data_row.add_component(TextArea(
-              text=cell, 
-              width="16em",
-              spacing_above="none",
-              spacing_below="none"
-            ))
-          else:
-            data_row.add_component(TextBox(
-              text=str(cell) if cell is not None else "", 
-              width="16em",
-              spacing_above="none",
-              spacing_below="none"
-            ))
-
-        # Add data row to table
+          widget_cls = TextArea if (isinstance(cell, str) and (len(cell) > 80 or '\n' in cell)) else TextBox
+          data_row.add_component(
+            widget_cls(text=str(cell) if cell is not None else "",
+                       spacing_above="none", spacing_below="none")   # ← no width
+          )
         table_container.add_component(data_row)
 
-      # Add the table to the main container
-      container.add_component(table_container)
+      # assemble
+      scroll_wrapper.add_component(table_container)
+      container.add_component(scroll_wrapper)
+
     else:
-      # List of scalars or empty list
       for item in value:
         render_json(item, container)
     return
 
-  # Fallback: unknown type
+  # Fallback
   container.add_component(Label(text=f"(Unrenderable: {repr(value)})"))
