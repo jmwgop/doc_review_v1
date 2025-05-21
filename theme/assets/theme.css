@@ -1,34 +1,19 @@
-/* Horizontal scrolling for table-like structures */
 .anvil-role-table-scroll {
   overflow-x: auto !important;
   overflow-y: visible !important;
   display: block !important;
-  white-space: nowrap !important;
-  max-width: 100% !important;
   width: 100% !important;
+  max-width: 100% !important;
 }
 
-/* Force the child FlowPanels to not wrap */
-.anvil-role-table-scroll > .anvil-container,
-.anvil-role-table-scroll > .flow-panel,
-.anvil-role-table-scroll > .anvil-component-flowpanel {
-  display: block !important;
-  white-space: nowrap !important;
-  min-width: max-content !important;
-}
-
-/* Ensure FlowPanels maintain their width */
 .anvil-role-table-scroll .flow-panel,
 .anvil-role-table-scroll .anvil-component-flowpanel {
-  white-space: nowrap !important;
   display: block !important;
-  min-width: max-content !important;
+  white-space: nowrap !important;
 }
 
-/* Ensure all inputs and labels in table rows stay inline */
 .anvil-role-table-scroll .flow-panel > *,
 .anvil-role-table-scroll .anvil-component-flowpanel > * {
   display: inline-block !important;
   vertical-align: top !important;
-  margin-right: 2px !important;
 }
