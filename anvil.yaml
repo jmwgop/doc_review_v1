@@ -1,4 +1,60 @@
 allow_embedding: false
+db_schema:
+  config:
+    client: none
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: schema
+      target: schema
+      type: link_multiple
+    - admin_ui: {order: 1, width: 200}
+      name: path
+      type: string
+    - admin_ui: {order: 2, width: 200}
+      name: widget_type
+      type: string
+    - admin_ui: {order: 3, width: 200}
+      name: choices
+      type: simpleObject
+    - admin_ui: {order: 4, width: 200}
+      name: view_mode
+      type: string
+    - admin_ui: {order: 5, width: 200}
+      name: excluded
+      type: bool
+    - admin_ui: {order: 6, width: 200}
+      name: label_override
+      type: string
+    server: full
+    title: config
+  documents:
+    client: none
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: json_result
+      type: simpleObject
+    - admin_ui: {order: 1, width: 200}
+      name: pdf
+      type: media
+    - admin_ui: {order: 2, width: 200}
+      name: doc_id
+      type: string
+    - admin_ui: {order: 3, width: 200}
+      name: corrected_json
+      type: simpleObject
+    - admin_ui: {order: 4, width: 200}
+      name: flags
+      type: simpleObject
+    server: full
+    title: documents
+  schema:
+    client: none
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: name
+      type: string
+    server: full
+    title: schema
 dependencies:
 - config: {}
   dep_id: dep_lin1x4oec0ytd
@@ -16,3 +72,6 @@ services:
 - client_config: {}
   server_config: {}
   source: /runtime/services/tables.yml
+startup: {module: MainReviewForm, type: form}
+startup_form: null
+uplink_visible: true
