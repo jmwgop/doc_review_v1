@@ -1,11 +1,36 @@
+/* Horizontal scrolling for table-like structures */
 .anvil-role-table-scroll {
-  overflow-x: auto;
-  display: block;
-  white-space: nowrap;
-  max-width: 100%;
+  overflow-x: auto !important;
+  display: block !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  width: 100% !important;
 }
 
-.anvil-role-table-scroll > .flow-panel {
-  display: inline-block;
-  vertical-align: top;
+/* Style for all row containers inside scrollable tables */
+.anvil-role-table-scroll > .flow-panel,
+.anvil-role-table-scroll > .anvil-component-flowpanel {
+  display: inline-block !important;
+  vertical-align: top !important;
+  white-space: nowrap !important;
+}
+
+/* Additional selector for ColumnPanel children */
+.anvil-role-table-scroll > .anvil-container {
+  display: block !important;
+}
+
+/* Ensure consistency in row display */
+.anvil-role-table-scroll .flow-panel,
+.anvil-role-table-scroll .anvil-component-flowpanel {
+  white-space: nowrap !important;
+  margin-bottom: 2px !important;
+}
+
+/* Ensure all inputs and labels in table rows are properly aligned */
+.anvil-role-table-scroll .flow-panel > *,
+.anvil-role-table-scroll .anvil-component-flowpanel > * {
+  display: inline-block !important;
+  vertical-align: top !important;
+  margin-right: 2px !important;
 }
