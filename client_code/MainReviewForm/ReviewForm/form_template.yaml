@@ -1,3 +1,29 @@
-components: []
-container: {type: ColumnPanel}
+components:
+- components:
+  - layout_properties: {col_xs: 1, row: HLIERO, width_xs: 5}
+    name: pdf_frame
+    properties: {height: 90vh}
+    type: form:dep_6g99i7pce7st3:IFrame
+  - layout_properties: {col_xs: 6, row: HLIERO, width_xs: 6}
+    name: json_container
+    properties:
+      col_spacing: none
+      spacing:
+        padding: [0, 0, 0, 0]
+      spacing_above: none
+      spacing_below: none
+    type: ColumnPanel
+  layout_properties: {grid_position: 'ADUEGI,SVINGS'}
+  name: review_grid
+  properties:
+    spacing:
+      padding: [0, 0, 0, 0]
+    spacing_above: none
+    spacing_below: none
+  type: GridPanel
+container:
+  properties:
+    spacing:
+      padding: [null, 0, null, 0]
+  type: ColumnPanel
 is_package: true
