@@ -1,0 +1,11 @@
+.anvil-role-table-scroll {
+  overflow-x: auto;
+  display: block;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.anvil-role-table-scroll > .flow-panel {
+  display: inline-block;
+  vertical-align: top;
+}
