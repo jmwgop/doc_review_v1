@@ -51,16 +51,19 @@ def render_json(value, container, label=None):
         all_keys.update(row.keys())
       keys = sorted(all_keys)
 
+      # Calculate total width needed for all columns
+      total_width = len(keys) * 16  # 16em per column
+
       # Create outer container with horizontal scroll
       table_container = ColumnPanel()
       table_container.role = "table-scroll"
       table_container.width = "100%"
 
-      # Create a horizontal container for each row
+      # Create a horizontal container for header row with FIXED WIDTH
       header_row = FlowPanel()
       header_row.spacing_above = "none"
       header_row.spacing_below = "none"
-      header_row.width = "auto"
+      header_row.width = f"{total_width}em"  # Force width to accommodate all columns
 
       # Add header cells
       for key in keys:
@@ -76,12 +79,12 @@ def render_json(value, container, label=None):
       # Add header row to table
       table_container.add_component(header_row)
 
-      # Create and add data rows
+      # Create and add data rows with FIXED WIDTH
       for row in flat_rows:
         data_row = FlowPanel()
         data_row.spacing_above = "none"
         data_row.spacing_below = "none"
-        data_row.width = "auto"
+        data_row.width = f"{total_width}em"  # Force width to accommodate all columns
 
         for key in keys:
           cell = row.get(key, "")
