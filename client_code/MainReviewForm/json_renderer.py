@@ -227,6 +227,7 @@ def render_json(value, container, label=None, _level=0):
 
       table_html += '</table></div>'
 
+      
       # Add the table to the container
       table_name = label.replace('_', ' ').replace('.', ' > ').title() if label else "Table"
       container.add_component(Label(text=f"{table_name}: {len(flat_rows)} rows", bold=True))
