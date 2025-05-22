@@ -1,8 +1,6 @@
 # json_renderer.py
 
 from anvil import *
-from anvil import DataGrid, RepeatingPanel, FlowPanel, Label, Spacer, TextBox, TextArea
-from ..JsonTableRowForm import JsonTableRowForm  # or wherever your row form is
 
 def flatten_dict(d, parent_key='', sep='_'):
   """Flattens a dict, so {'a': {'b': 1}} -> {'a_b': 1}"""
@@ -15,12 +13,10 @@ def flatten_dict(d, parent_key='', sep='_'):
       items.append((new_key, v))
   return dict(items)
 
-  
 def collect_fields_by_type(value, parent_key='', scalar_fields=None, table_fields=None):
   """
-    Recursively collects all scalar fields and table fields from the entire JSON structure.
-    Returns two lists: (scalar_fields, table_fields) with their full paths.
-    """
+  Recursively collects all scalar fields and table fields from the entire JSON structure.
+  """
   if scalar_fields is None:
     scalar_fields = []
   if table_fields is None:
@@ -31,29 +27,110 @@ def collect_fields_by_type(value, parent_key='', scalar_fields=None, table_field
       new_key = f"{parent_key}.{k}" if parent_key else k
 
       if isinstance(v, (str, int, float, bool)) or v is None:
-        # It's a scalar field
         scalar_fields.append((new_key, v))
       elif isinstance(v, list) and v and isinstance(v[0], dict):
-        # It's a table
         table_fields.append((new_key, v))
       elif isinstance(v, dict):
-        # Recurse into nested dict
         collect_fields_by_type(v, new_key, scalar_fields, table_fields)
-        # Skip other types for now
 
   return scalar_fields, table_fields
 
+def create_real_editable_table(data_list, container, label=None):
+  """
+  Creates a table using real Anvil components that look like HTML tables
+  but are actually accessible to Python code.
+  """
+  if not data_list:
+    container.add_component(Label(text="(No data)"))
+    return
+
+  # Add table name
+  table_name = label.replace('_', ' ').replace('.', ' > ').title() if label else "Table"
+  container.add_component(Label(text=f"{table_name}: {len(data_list)} rows", bold=True))
+  container.add_component(Spacer(height=5))
+
+  # Flatten all rows and get unique keys
+  flat_rows = [flatten_dict(row) for row in data_list]
+  all_keys = sorted({k for row in flat_rows for k in row})
+
+  if not all_keys:
+    container.add_component(Label(text="(No fields found)"))
+    return
+
+  # Create M3 Card using ColumnPanel with outlined-card role for horizontal scrolling
+  scroll_wrapper = ColumnPanel(
+    role="outlined-card"
+  )
+
+  table_container = ColumnPanel(
+    background="#ffffff"
+  )
+
+  # Create header row using FlowPanel with tight spacing
+  header_panel = FlowPanel(spacing="tight")
+  header_panel.background = "#f5f5f5"
+
+  for key in all_keys:
+    header_label = Label(
+      text=key.replace('_', ' ').title(),
+      bold=True,
+      width="180px",  # Consistent fixed width
+      align="center",
+      background="#f5f5f5",
+      foreground="#333"
+    )
+    header_label.border = "1px solid #ddd"
+    header_label.spacing = "tight"
+    header_panel.add_component(header_label)
+
+  table_container.add_component(header_panel)
+
+  # Create data rows with real editable components
+  for i, row_data in enumerate(flat_rows):
+    bg_color = "#fafafa" if i % 2 == 1 else "#ffffff"
+
+    row_panel = FlowPanel()
+    row_panel.background = bg_color
+    row_panel.spacing = "none"
+
+    for key in all_keys:
+      cell_value = row_data.get(key, "")
+      str_value = "" if cell_value is None else str(cell_value)
+
+      # Create real editable Anvil component
+      if len(str_value) > 80 or '\n' in str_value:
+        cell_component = TextArea(
+          text=str_value,
+          height="60px"
+        )
+      else:
+        cell_component = TextBox(text=str_value)
+
+      # Style to look like table cell
+      cell_component.width = "200px"  # Match header width
+      cell_component.background = "#ffffff"
+      cell_component.border = "1px solid #ddd"
+      cell_component.align = "center"
+
+      # Store reference for data extraction later
+      cell_component.tag = f"table_{label}_{i}_{key}"
+
+      row_panel.add_component(cell_component)
+
+    table_container.add_component(row_panel)
+
+  scroll_wrapper.add_component(table_container)
+  container.add_component(scroll_wrapper)
+  container.add_component(Spacer(height=20))
+
 def render_json(value, container, label=None, _level=0):
   """
-    Recursively renders JSON into an Anvil container as editable inputs.
-    Args:
-        value: The JSON data (dict, list, or scalar)
-        container: The Anvil container (ColumnPanel, etc.) to add components to
-        label: Optional label for this section
-        _level: (internal) indent level for debug prints
-    """
+  Renders JSON with real editable Anvil components.
+  """
+  if label is not None:
+    print(f"[RENDER] Section label: {label}")
 
-  # 1. Scalars (str, int, float, bool, None) - with labels
+  # 1. Scalars - real TextBox/TextArea components
   if isinstance(value, (str, int, float, bool)) or value is None:
     if label:
       container.add_component(Label(
@@ -63,23 +140,27 @@ def render_json(value, container, label=None, _level=0):
 
     vstr = "" if value is None else str(value)
     if isinstance(value, str) and (len(value) > 80 or '\n' in value):
-      container.add_component(TextArea(text=vstr, width="100%"))
+      field_component = TextArea(text=vstr, width="100%")
     else:
-      container.add_component(TextBox(text=vstr, width="100%"))
+      field_component = TextBox(text=vstr, width="100%")
+
+    # Store reference for data extraction
+    field_component.tag = f"field_{label}"
+    container.add_component(field_component)
     container.add_component(Spacer(height=5))
     return
 
-    # 2. Dicts - group ALL fields by type at the top level
+  # 2. Dicts - group by type at top level
   if isinstance(value, dict):
     if _level == 0:
       scalar_fields, table_fields = collect_fields_by_type(value)
 
-      # Render ALL scalar fields first
+      # Render all scalar fields first
       if scalar_fields:
         for field_path, field_value in scalar_fields:
           render_json(field_value, container, label=field_path, _level=_level+1)
 
-          # Then render ALL tables
+      # Then render all tables
       if table_fields:
         container.add_component(Spacer(height=20))
         for table_path, table_value in table_fields:
@@ -89,46 +170,46 @@ def render_json(value, container, label=None, _level=0):
         render_json(v, container, label=k, _level=_level+1)
     return
 
-    # 3. Lists
+  # 3. Lists - use real components that look like tables
   if isinstance(value, list):
-    # Check: List of dicts
-    if value and all(isinstance(row, dict) for row in value):
-      # Table column headers from union of all dict keys
-      keys = sorted({k for row in value for k in row})
-      columns = [
-        {'id': k, 'title': k.replace('_', ' ').replace('.', ' ').title(), 'data_key': k, 'width': "150px"}
-        for k in keys
-      ]
-      datagrid = DataGrid(columns=columns, rows_per_page=10)
-      rp = RepeatingPanel(item_template=JsonTableRowForm)
-      rp.items = value
-
-      # Item template as a Form (best) or function
-      def item_template(row=None, **properties):
-        flow = FlowPanel()
-        for k in keys:
-          val = row.get(k, "")
-          if isinstance(val, str) and (len(val) > 80 or '\n' in val):
-            comp = TextArea(text=str(val), width="100%")
-          else:
-            comp = TextBox(text=str(val), width="100%")
-          flow.add_component(comp, width="150px")
-        return flow
-
-      rp.item_template = item_template
-      datagrid.add_component(rp)
-      table_name = label.replace('_', ' ').replace('.', ' > ').title() if label else "Table"
-      container.add_component(Label(text=f"{table_name}: {len(value)} rows", bold=True))
-      container.add_component(Spacer(height=5))
-      container.add_component(datagrid)
-      container.add_component(Spacer(height=10))
+    if value and isinstance(value[0], dict):
+      create_real_editable_table(value, container, label)
       return
-
-      # Otherwise, treat as list of scalars or nested lists
     else:
       for idx, item in enumerate(value):
-        render_json(item, container, label=f"{label}[{idx}]", _level=_level+1)
+        render_json(item, container, _level=_level+1)
       return
 
-  # Fallback for anything else
+  # Fallback
   container.add_component(Label(text=f"(Unrenderable: {repr(value)})"))
+
+def extract_edited_data(container):
+  """
+  Extracts current values from all editable components.
+  Uses the .tag property to identify components and rebuild data structure.
+  """
+  edited_data = {}
+
+  def traverse_components(comp):
+    if hasattr(comp, 'tag') and comp.tag and hasattr(comp, 'text'):
+      if comp.tag.startswith('field_'):
+        field_name = comp.tag[6:]  # Remove 'field_' prefix
+        edited_data[field_name] = comp.text
+      elif comp.tag.startswith('table_'):
+        # Handle table data extraction
+        parts = comp.tag.split('_', 3)  # table_label_row_key
+        if len(parts) >= 4:
+          table_name, row_idx, key = parts[1], int(parts[2]), parts[3]
+          if table_name not in edited_data:
+            edited_data[table_name] = {}
+          if row_idx not in edited_data[table_name]:
+            edited_data[table_name][row_idx] = {}
+          edited_data[table_name][row_idx][key] = comp.text
+
+    # Recursively check child components
+    if hasattr(comp, 'get_components'):
+      for child in comp.get_components():
+        traverse_components(child)
+
+  traverse_components(container)
+  return edited_data
