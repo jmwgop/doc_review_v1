@@ -8,10 +8,7 @@ unique_ids:
     MainReviewForm.LandingForm: '1747855561166727384793854.9119'
     MainReviewForm.ReviewForm: '1747855632840262654645619.46396'
   modules:
-    MainReviewForm.json_bup_dgrid: '174793088180661764720040.42388'
-    MainReviewForm.json_bup_html: '1747929741813402284485105.06274'
     MainReviewForm.json_renderer: '1747861672663300006828436.97327'
-    MainReviewForm.json_renderer_v1: '1747932212131581018258739.9863'
   scripts: {}
   server_modules:
     ConfigService: '1747855894289310519393643.0175'
