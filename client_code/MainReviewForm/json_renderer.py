@@ -1,6 +1,7 @@
 # json_renderer.py
 
 from anvil import *
+from ..HtmlTablePanel import HtmlTablePanel  # Make sure this exists as a Custom HTML Form!
 
 def flatten_dict(d, parent_key='', sep='_'):
   """Flattens a dict, so {'a': {'b': 1}} -> {'a_b': 1}"""
@@ -22,13 +23,11 @@ def render_json(value, container, label=None, _level=0):
         label: Optional label for this section
         _level: (internal) indent level for debug prints
     """
-  # Only print what matters for layout debug
   if label is not None:
     print(f"[RENDER] Section label: {label}")
 
     # 1. Scalars (str, int, float, bool, None)
   if isinstance(value, (str, int, float, bool)) or value is None:
-    # Don't spam prints for scalars
     vstr = "" if value is None else str(value)
     if isinstance(value, str) and (len(value) > 80 or '\n' in value):
       container.add_component(TextArea(text=vstr))
@@ -45,38 +44,91 @@ def render_json(value, container, label=None, _level=0):
     # 3. Lists
   if isinstance(value, list):
     if value and isinstance(value[0], dict):
-      # ----------- Render list of dicts as a table with horizontal scroll -----------
+      # ----------- Render as a proper horizontally scrollable table -----------
       flat_rows = [flatten_dict(row) for row in value]
       keys = sorted({k for row in flat_rows for k in row})
 
+      # Max width for the table container
+      max_width = "1500px"  # <-- Change this value if you want a different max width
+
+      # Minimum width for the table itself, based on columns
+      table_width = len(keys) * 12 + 2  # 12em per column + 2em padding
+      min_width_em = 8
+      max_width_em = 20
+      
+      # Build HTML string for the table
+      table_html = f"""
+            <div style="
+              width: 100%;
+              max-width: {max_width};
+              overflow-x: auto;
+              border: 1px solid #ddd;
+              border-radius: 4px;
+              max-height: 400px;
+              overflow-y: auto;
+            ">
+              <div style="
+                min-width: {table_width}em;
+                display: table;
+                border-collapse: collapse;
+              ">
+            """
+
       # Header row
-      header_row = FlowPanel(role='horizontal-scroll')
+      table_html += '<div style="display: table-row; background-color: #f5f5f5; font-weight: bold;">'
       for key in keys:
-        header_row.add_component(
-          Label(
-            text=key.capitalize().replace('_', ' '),
-            bold=True,
-            underline=True,
-            width="12em"
-          )
-        )
-      print("[DEBUG] Rendered header row with horizontal-scroll role.")
-      container.add_component(header_row)
+        table_html += f'''
+                <div style="
+                  display: table-cell;
+                  min-width: {min_width_em}em;
+                  max-width: {max_width_em}em;
+                  width: auto;
+                  padding: 8px;
+                  border: 1px solid #ddd;
+                  text-align: left;
+                  white-space: normal;
+                  word-wrap: break-word;
+                ">{key.capitalize().replace('_', ' ')}</div>
+                '''
+      table_html += '</div>'
 
       # Data rows
       for i, row in enumerate(flat_rows):
-        data_row = FlowPanel(role='horizontal-scroll')
+        bg_color = "#ffffff" if i % 2 == 0 else "#f9f9f9"
+        table_html += f'<div style="display: table-row; background-color: {bg_color};">'
         for key in keys:
           cell = row.get(key, "")
-          widget_cls = TextArea if (isinstance(cell, str) and (len(cell) > 80 or '\n' in cell)) else TextBox
-          data_row.add_component(
-            widget_cls(
-              text=str(cell) if cell is not None else "",
-              width="12em"
-            )
-          )
-        print(f"[DEBUG] Rendered data row {i} with horizontal-scroll role.")
-        container.add_component(data_row)
+          cell_text = str(cell) if cell is not None else ""
+          # Escape HTML in cell content
+          cell_text = cell_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+          table_html += f'''
+                    <div style="
+                      display: table-cell;
+                      min-width: {min_width_em}em;
+                      max-width: {max_width_em}em;
+                      width: auto;
+                      padding: 8px;
+                      border: 1px solid #ddd;
+                      text-align: left;
+                      white-space: normal;
+                      word-wrap: break-word;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                    ">{cell_text}</div>
+                    '''
+        table_html += '</div>'
+
+      table_html += '</div></div>'
+
+      # Add the table to the container
+      container.add_component(Label(text=f"Table: {len(flat_rows)} rows"))
+      container.add_component(Spacer(height=5))
+      table_panel = HtmlTablePanel()
+      table_panel.html = table_html
+      container.add_component(table_panel)
+      container.add_component(Spacer(height=10))
+
+      print(f"[DEBUG] Rendered HTML table with {len(flat_rows)} rows and {len(keys)} columns")
       return
     else:
       for idx, item in enumerate(value):
