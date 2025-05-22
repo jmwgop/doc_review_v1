@@ -85,38 +85,3 @@
   top: 0;
   z-index: 10;
 }
-
-/* Ensure no spacing between FlowPanel children */
-.anvil-role-json-no-spacing > .anvil-container {
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-
-.anvil-role-json-two-col {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 16px 24px !important;   /* row gap, column gap */
-}
-
-.anvil-role-json-two-col > .anvil-container {
-  width: 260px !important;     /* same width as brick ColumnPanel */
-}
-
-
-/* Smooth expansion for any input/textarea with this role */
-.anvil-role-expand-on-focus {
-  transition: all 0.25s ease-in-out !important;
-  min-height: 32px !important;        /* default compact height */
-  max-height: 120px !important;       /* prevent runaway growth */
-  overflow-y: auto !important;        /* show scrollbar if needed */
-  width: 100% !important;         /* already have height expansion */
-
-}
-
-/* When the user clicks/focuses the field */
-.anvil-role-expand-on-focus:focus {
-  min-height: 120px !important;
-  width: 100% !important;            /* or 100% to full-width */
-}
-

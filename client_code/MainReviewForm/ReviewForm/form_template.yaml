@@ -1,4 +1,9 @@
 components:
+- event_bindings: {change: doc_dropdown_change}
+  layout_properties: {grid_position: 'QYIWUT,ADLJAF'}
+  name: doc_dropdown
+  properties: {}
+  type: form:dep_lin1x4oec0ytd:_Components.DropdownMenu
 - event_bindings: {click: save_btn_click}
   layout_properties: {grid_position: 'AWUBOU,ASBBXO'}
   name: save_btn

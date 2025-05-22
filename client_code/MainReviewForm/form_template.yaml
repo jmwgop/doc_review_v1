@@ -9,7 +9,7 @@ components_by_slot:
   navigation:
   - layout_properties: {}
     name: nav_link_documents
-    properties: {icon: 'mi:apk_document', navigate_to: MainReviewForm.LandingForm, text: Documents}
+    properties: {icon: 'mi:apk_document', navigate_to: MainReviewForm.ReviewForm, text: Documents}
     type: form:dep_lin1x4oec0ytd:_Components.NavigationLink
 is_package: true
 layout:

@@ -19,15 +19,22 @@ class HtmlTablePanel(HtmlTablePanelTemplate):
     self.clear()
     self.add_component(HtmlTemplate(html=value))
 
-  # ---------- NEW ----------
-  def get_table_data(self):
-    # load helper JS once
-    if not hasattr(anvil.js.window, "getTableData"):
+    # IMPORTANT: Load the popout editor JS after setting HTML
+    self._ensure_popout_js_loaded()
+
+  def _ensure_popout_js_loaded(self):
+    """Ensure the popout editor JavaScript is available in the browser."""
+    # Load helper JS once per page (check if it already exists)
+    if not hasattr(anvil.js.window, "openTablePopout"):
       anvil.js.window.eval(json_renderer.get_table_data_js())
-  
+
+  def get_table_data(self):
+    # Ensure JS is loaded
+    self._ensure_popout_js_loaded()
+
     nested = anvil.js.call_js("getTableData")  # {"tracts":[…], "parties":[…]}
     flat = {}
-  
+
     # turn it into  {"table_tracts_0_description": "...", ...}
     for tbl, rows in (nested or {}).items():
       if rows:
@@ -36,4 +43,3 @@ class HtmlTablePanel(HtmlTablePanelTemplate):
             for col, val in row.items():
               flat[f"table_{tbl}_{idx}_{col}"] = val
     return flat
-

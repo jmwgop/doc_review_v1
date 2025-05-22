@@ -14,33 +14,36 @@ from collections import defaultdict
 # Helper functions
 # ──────────────────────────────────────────────────────────────────────────────
 
-# ─────────────────────────────────────────────────────────────
-# inline pop-up editor for long text fields
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# Smart pop-up editor for long text fields
+# ─────────────────────────────────────────────────────────────────────────────
 def _install_popout_editor(widget):
   """When *widget* (TextArea/TextBox) gains focus, open a big
-    floating editor.  Saves back on OK, discards on Cancel / Esc."""
+    floating editor IF the content is long enough to warrant it.
+    Only shows popout for content > 100 chars OR content with line breaks."""
+
   def _open_editor(**evt):
+    current_text = widget.text or ""
+
+    # Only show popout if content is long or has line breaks
+    if len(current_text) <= 100 and '\n' not in current_text:
+      return  # Let the field behave normally for short content
+
     # build a large TextArea pre-filled with the current text
-    big = TextArea(text=widget.text, width="100%", height="300px")
+    big = TextArea(text=current_text, width="100%", height="400px")
 
     # show it in an Anvil alert dialog
     ok = alert(big,
                large=True,
-               title="Edit",
+               title="Edit Long Text",
                buttons=[("Save", True), ("Cancel", False)])
 
     # if user clicked Save, commit changes
     if ok:
       widget.text = big.text
 
-      # return focus to the original widget (nice UX)
-    # widget.focus()
-
-    # bind to focus event; one line per widget
+  # bind to focus event
   widget.set_event_handler("focus", _open_editor)
-
-
 
 
 def dig(data, path_parts):
@@ -269,6 +272,8 @@ def _render_table(label, rows, container):
     ".json-table tr:nth-child(even){background:#f9f9f9;}",
     ".json-table input[type='text'],.json-table textarea{width:calc(100% - 8px);border:1px solid #e0e0e0;background:white;font-family:inherit;font-size:inherit;padding:4px;margin:0;text-align:left;}",
     ".json-table textarea{height:60px;resize:vertical;}",
+    # ADD: Click handler for popout editor on table fields
+    ".json-table input[type='text']:focus,.json-table textarea:focus{outline:2px solid #4285f4;outline-offset:1px;}",
     "</style>",
     "<div class='json-table-container'><table class='json-table'>",
     "<thead><tr>",
@@ -286,10 +291,12 @@ def _render_table(label, rows, container):
       cell = str(row.get(k, ""))
       esc = (cell.replace("&", "&amp;").replace("<", "&lt;")
         .replace(">", "&gt;").replace("\"", "&quot;"))
+
+      # ADD: onclick handler for popout editor
       if len(cell) > 80 or "\n" in cell:
-        inp = f"<textarea data-tag='table_{label}_{i}_{k}'>{esc}</textarea>"
+        inp = f"<textarea data-tag='table_{label}_{i}_{k}' onclick='openTablePopout(this)'>{esc}</textarea>"
       else:
-        inp = f"<input type='text' value='{esc}' data-tag='table_{label}_{i}_{k}'/>"
+        inp = f"<input type='text' value='{esc}' data-tag='table_{label}_{i}_{k}' onclick='openTablePopout(this)'/>"
       html.append(f"<td>{inp}</td>")
     html.append("</tr>")
   html.append("</tbody></table></div>")
@@ -405,5 +412,121 @@ def get_table_data_js():
         }
       });
       return data;
+    }
+    
+    // NEW: Popout editor for table fields
+    function openTablePopout(element) {
+      const currentText = element.value;
+      
+      // Only show popout if content is long or has line breaks
+      if (currentText.length <= 100 && !currentText.includes('\\n')) {
+        return; // Let the field behave normally for short content
+      }
+      
+      // Create a modal overlay
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      // Create the modal content
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        width: 80%;
+        max-width: 800px;
+        max-height: 80%;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      `;
+      
+      // Create the textarea
+      const textarea = document.createElement('textarea');
+      textarea.value = currentText;
+      textarea.style.cssText = `
+        width: 100%;
+        height: 400px;
+        margin-bottom: 15px;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 14px;
+        resize: vertical;
+      `;
+      
+      // Create buttons
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'text-align: right;';
+      
+      const saveBtn = document.createElement('button');
+      saveBtn.textContent = 'Save';
+      saveBtn.style.cssText = `
+        background: #4285f4;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        margin-left: 10px;
+        border-radius: 4px;
+        cursor: pointer;
+      `;
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = `
+        background: #f8f9fa;
+        color: #333;
+        border: 1px solid #ddd;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+      `;
+      
+      // Add event listeners
+      saveBtn.onclick = () => {
+        element.value = textarea.value;
+        document.body.removeChild(overlay);
+      };
+      
+      cancelBtn.onclick = () => {
+        document.body.removeChild(overlay);
+      };
+      
+      // Close on overlay click
+      overlay.onclick = (e) => {
+        if (e.target === overlay) {
+          document.body.removeChild(overlay);
+        }
+      };
+      
+      // Close on Escape key
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          document.body.removeChild(overlay);
+        }
+      }, { once: true });
+      
+      // Assemble the modal
+      buttonContainer.appendChild(cancelBtn);
+      buttonContainer.appendChild(saveBtn);
+      modal.appendChild(textarea);
+      modal.appendChild(buttonContainer);
+      overlay.appendChild(modal);
+      
+      // Show the modal
+      document.body.appendChild(overlay);
+      
+      // Focus the textarea
+      setTimeout(() => textarea.focus(), 100);
     }
     """
