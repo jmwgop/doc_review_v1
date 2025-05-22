@@ -1,7 +1,8 @@
 from anvil import *
 
-def flatten_dict(d, parent_key='', sep='_'):
-  """Flattens a dict, so {'a': {'b': 1}} -> {'a_b': 1}"""
+# ---------- small helpers ----------
+
+def flatten_dict(d, parent_key="", sep="_"):
   items = []
   for k, v in d.items():
     new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -11,228 +12,170 @@ def flatten_dict(d, parent_key='', sep='_'):
       items.append((new_key, v))
   return dict(items)
 
-def is_likely_long_field(field_name, value):
-  """Return True if value is a long string; ignore field_name completely."""
-  return isinstance(value, str) and (len(value) > 40 or '\n' in value)
+
+def is_long_string(s):
+  return isinstance(s, str) and (len(s) > 40 or "\n" in s)
+
+
+# ---------- table building ----------
 
 def assign_column_roles(keys, example_row):
-  """Assign column roles purely based on content length."""
   roles = []
-  for key in keys:
-    value = example_row.get(key, "")
-    if is_likely_long_field(None, value):
-      roles.append("anvil-role-json-table-cell anvil-role-json-col-wide json-col-wide")
+  for k in keys:
+    if is_long_string(example_row.get(k, "")):
+      roles.append("json-table-cell json-col-wide")
     else:
-      roles.append("anvil-role-json-table-cell anvil-role-json-col-narrow json-col-narrow")
+      roles.append("json-table-cell json-col-narrow")
   return roles
 
-def create_table_with_anvil_components(data_list, container, label=None):
-  """
-    Creates a responsive, scrollable table using Anvil components and roles for proper CSS styling.
-    Column widths are set via roles for flexible sizing and scroll support, based ONLY on content length.
-    """
-  if not data_list:
+
+def create_table_with_anvil_components(data, container, label=None):
+  if not data:
     container.add_component(Label(text="(No data)"))
     return
 
-    # Table label
-  table_name = label.replace('_', ' ').replace('.', ' > ').title() if label else "Table"
-  container.add_component(Label(text=f"{table_name}: {len(data_list)} rows", bold=True))
+  table_name = (label or "Table").replace("_", " ").replace(".", " > ").title()
+  container.add_component(Label(text=f"{table_name}: {len(data)} rows", bold=True))
   container.add_component(Spacer(height=5))
 
-  # Flatten each row
-  flat_rows = [flatten_dict(row) for row in data_list]
-  all_keys = list(dict.fromkeys(k for row in flat_rows for k in row))  # preserve order
+  flat_rows = [flatten_dict(r) for r in data]
+  all_keys = list(dict.fromkeys(k for row in flat_rows for k in row))
+  roles = assign_column_roles(all_keys, flat_rows[0])
 
-  if not all_keys:
-    container.add_component(Label(text="(No fields found)"))
-    return
+  outer = ColumnPanel(role="json-table-container")
 
-    # Assign column roles: wide or narrow (content-based only)
-  roles = assign_column_roles(all_keys, flat_rows[0] if flat_rows else {})
+  wrapper = LinearPanel(role="json-table-wrapper json-table-dynamic")
+  wrapper.width = "auto"
 
-  # Outer scrollable container
-  outer_container = ColumnPanel()
-  outer_container.role = "json-table-container"
-
-  # Inner wrapper (stretches to content width)
-  inner_panel = LinearPanel()
-  inner_panel.role = "json-table-wrapper json-table-dynamic"
-  inner_panel.width = "auto"  # Let CSS/roles control width
-
-  # === HEADER ROW ===
-  header_row = FlowPanel(spacing="none")
-  header_row.role = "json-table-row json-header-row json-no-spacing"
-  for key, role in zip(all_keys, roles):
-    header_cell = Label(
-      text=key.replace('_', ' ').replace('.', ' > ').title(),
-      bold=True,
-      role=role
+  # ----- header -----
+  header = FlowPanel(spacing="none", role="json-table-row json-header-row json-no-spacing")
+  for k, role in zip(all_keys, roles):
+    # Determine width based on role
+    width = "260px" if "json-col-wide" in role else "160px"
+    header.add_component(
+      Label(text=k.replace("_", " ").replace(".", " > ").title(),
+            bold=True, role=role),
+      width=width  # ADD THIS
     )
-    header_row.add_component(header_cell)
-  inner_panel.add_component(header_row)
+  wrapper.add_component(header)
 
-  # === DATA ROWS ===
-  for row_idx, row_data in enumerate(flat_rows):
-    row_role = "json-row-even" if row_idx % 2 == 0 else "json-row-odd"
-    data_row = FlowPanel(spacing="none")
-    data_row.role = f"json-table-row {row_role} json-no-spacing"
-
-    for col_idx, (key, role) in enumerate(zip(all_keys, roles)):
-      cell_value = row_data.get(key, "")
-      str_value = "" if cell_value is None else str(cell_value)
-      # Choose input type
-      if len(str_value) > 80 or '\n' in str_value:
-        cell_component = TextArea(
-          text=str_value,
-          placeholder="",
-          role=f"{role} json-data-cell"
-        )
+  # ----- body -----
+  for r_i, row in enumerate(flat_rows):
+    body_row = FlowPanel(
+      spacing="none",
+      role=f"json-table-row {'json-row-even' if r_i % 2 == 0 else 'json-row-odd'} json-no-spacing",
+    )
+    for k, role in zip(all_keys, roles):
+      val = row.get(k, "")
+      txt = "" if val is None else str(val)
+      width = "260px" if "json-col-wide" in role else "160px"  # ADD THIS
+      if is_long_string(txt):
+        comp = TextArea(text=txt, role=f"{role} json-data-cell")
       else:
-        cell_component = TextBox(
-          text=str_value,
-          placeholder="",
-          role=f"{role} json-data-cell"
-        )
-        # Set tag and add to row (for both input types)
-      cell_component.tag = f"table_{label}_{row_idx}_{key}"
-      data_row.add_component(cell_component)
+        comp = TextBox(text=txt, role=f"{role} json-data-cell")
+      comp.tag = f"table_{label}_{r_i}_{k}"
+      body_row.add_component(comp, width=width)  # ADD WIDTH HERE
+    wrapper.add_component(body_row)
 
-      # After all cells for this row:
-    inner_panel.add_component(data_row)
-
-    # Add to outer container once, after all rows are built
-  outer_container.add_component(inner_panel)
-  container.add_component(outer_container)
+  outer.add_component(wrapper)
+  container.add_component(outer)
   container.add_component(Spacer(height=12))
 
-def collect_fields_by_type(value, parent_key='', scalar_fields=None, table_fields=None):
-  """
-    Recursively collects all scalar fields and table fields from the entire JSON structure.
-    Returns two lists: (scalar_fields, table_fields) with their full paths.
-    """
-  if scalar_fields is None:
-    scalar_fields = []
-  if table_fields is None:
-    table_fields = []
 
+# ---------- JSON renderer ----------
+
+def collect_fields_by_type(value, parent_key="", scalars=None, tables=None):
+  scalars = scalars or []
+  tables = tables or []
   if isinstance(value, dict):
     for k, v in value.items():
       new_key = f"{parent_key}.{k}" if parent_key else k
       if isinstance(v, (str, int, float, bool)) or v is None:
-        scalar_fields.append((new_key, v))
+        scalars.append((new_key, v))
       elif isinstance(v, list) and v and isinstance(v[0], dict):
-        table_fields.append((new_key, v))
+        tables.append((new_key, v))
       elif isinstance(v, dict):
-        collect_fields_by_type(v, new_key, scalar_fields, table_fields)
+        collect_fields_by_type(v, new_key, scalars, tables)
+  return scalars, tables
 
-  return scalar_fields, table_fields
 
-def render_json(value, container, label=None, _level=0):
-  """
-    Recursively renders JSON into Anvil container as editable inputs, styled by role.
-    """
-  # Scalars
+def render_json(value, container, label=None, _lvl=0):
+  # --- simple scalar ---
   if isinstance(value, (str, int, float, bool)) or value is None:
     if label:
-      container.add_component(Label(
-        text=f"{label.replace('_', ' ').replace('.', ' > ').title()}:",
-        bold=True
-      ))
-    vstr = "" if value is None else str(value)
-    if isinstance(value, str) and (len(vstr) > 80 or '\n' in vstr):
-      field_component = TextArea(text=vstr, width="100%")
-    else:
-      field_component = TextBox(text=vstr, width="100%")
-    field_component.tag = f"field_{label}"
-    container.add_component(field_component)
+      container.add_component(Label(text=f"{label.replace('_', ' ').replace('.', ' > ').title()}:", bold=True))
+    txt = "" if value is None else str(value)
+    widget = TextArea if is_long_string(txt) else TextBox
+    field = widget(text=txt, width="100%")
+    field.tag = f"field_{label}"
+    container.add_component(field)
     container.add_component(Spacer(height=5))
     return
 
-    # Dicts: top-level, group fields and tables
+    # --- dict ---
   if isinstance(value, dict):
-    if _level == 0:
-      # Group scalar and table fields
-      scalar_fields, table_fields = collect_fields_by_type(value)
-      for field_path, field_value in scalar_fields:
-        render_json(field_value, container, label=field_path, _level=_level+1)
-      if table_fields:
+    if _lvl == 0:
+      scalars, tables = collect_fields_by_type(value)
+      for p, v in scalars:
+        render_json(v, container, label=p, _lvl=_lvl + 1)
+      if tables:
         container.add_component(Spacer(height=20))
-        for table_path, table_value in table_fields:
-          render_json(table_value, container, label=table_path, _level=_level+1)
+        for p, v in tables:
+          render_json(v, container, label=p, _lvl=_lvl + 1)
     else:
       for k, v in value.items():
-        render_json(v, container, label=k, _level=_level+1)
+        render_json(v, container, label=k, _lvl=_lvl + 1)
     return
 
-    # Lists
+    # --- list ---
   if isinstance(value, list):
     if value and isinstance(value[0], dict):
       create_table_with_anvil_components(value, container, label)
-      return
     else:
-      for idx, item in enumerate(value):
-        render_json(item, container, _level=_level+1)
-      return
+      for item in value:
+        render_json(item, container, _lvl=_lvl + 1)
+    return
 
-    # Fallback
+    # --- fallback ---
   container.add_component(Label(text=f"(Unrenderable: {repr(value)})"))
 
+
+# ---------- extraction helpers ----------
+
 def extract_edited_data(container):
-  """
-    Extract current values from editable components. Uses .tag to rebuild data structure.
-    """
-  edited_data = {}
-  table_data = {}
+  scalars, tables = {}, {}
 
-  def traverse_components(comp):
-    if hasattr(comp, 'tag') and comp.tag:
-      if hasattr(comp, 'text'):
-        if comp.tag.startswith('field_'):
-          field_name = comp.tag[6:]
-          edited_data[field_name] = comp.text
-        elif comp.tag.startswith('table_'):
-          parts = comp.tag.split('_', 3)
-          if len(parts) >= 4:
-            table_name, row_idx, key = parts[1], int(parts[2]), parts[3]
-            if table_name not in table_data:
-              table_data[table_name] = {}
-            if row_idx not in table_data[table_name]:
-              table_data[table_name][row_idx] = {}
-            table_data[table_name][row_idx][key] = comp.text
-    if hasattr(comp, 'get_components'):
-      for child in comp.get_components():
-        traverse_components(child)
+  def walk(c):
+    if getattr(c, "tag", None) and hasattr(c, "text"):
+      if c.tag.startswith("field_"):
+        scalars[c.tag[6:]] = c.text
+      elif c.tag.startswith("table_"):
+        _, tbl, idx, key = c.tag.split("_", 3)
+        idx = int(idx)
+        tables.setdefault(tbl, {}).setdefault(idx, {})[key] = c.text
+    if hasattr(c, "get_components"):
+      for child in c.get_components():
+        walk(child)
 
-  traverse_components(container)
+  walk(container)
 
-  for table_name, rows in table_data.items():
-    row_list = []
-    for i in sorted(rows.keys()):
-      row_list.append(rows[i])
-    edited_data[table_name] = row_list
+  # collapse table rows into ordered lists
+  for t_name, rows in tables.items():
+    scalars[t_name] = [rows[i] for i in sorted(rows)]
 
-  return edited_data
+  return scalars
 
-def unflatten_data(flat_data):
-  """
-    Converts flattened data back to nested structure.
-    Example: {'a.b.c': 'value'} -> {'a': {'b': {'c': 'value'}}}
-    """
-  result = {}
-  for key, value in flat_data.items():
-    parts = key.split('.')
-    current = result
-    for part in parts[:-1]:
-      if part not in current:
-        current[part] = {}
-      current = current[part]
-    current[parts[-1]] = value
-  return result
+
+def unflatten(flat):
+  nested = {}
+  for k, v in flat.items():
+    parts = k.split(".")
+    cur = nested
+    for p in parts[:-1]:
+      cur = cur.setdefault(p, {})
+    cur[parts[-1]] = v
+  return nested
+
 
 def get_final_json(container):
-  """
-    Extracts all edited data and returns it as properly structured JSON.
-    """
-  flat_data = extract_edited_data(container)
-  return unflatten_data(flat_data)
+  return unflatten(extract_edited_data(container))

@@ -27,7 +27,6 @@
 .anvil-role-json-table-cell {
   min-width: 160px !important;
   max-width: 400px;
-  flex: 1 1 0 !important;
   padding: 12px 10px !important;
   text-align: center;
   vertical-align: middle;
@@ -39,4 +38,31 @@
 .anvil-role-json-col-wide {
   min-width: 260px !important;
   flex: 3 1 0 !important;
+}
+
+/* Add this to make inputs fill their container width */
+.anvil-role-json-table-cell .anvil-textbox,
+.anvil-role-json-table-cell .anvil-textarea {
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 4px !important;
+  margin: 0 !important;
+  text-align: center !important;
+}
+
+/* Also add alternating row colors */
+.anvil-role-json-row-even {
+  background-color: #ffffff;
+}
+
+.anvil-role-json-row-odd {
+  background-color: #f9f9f9;
+}
+
+/* Style the header row */
+.anvil-role-json-header-row {
+  background-color: #f5f5f5 !important;
+  font-weight: bold;
+  border-bottom: 2px solid #ddd !important;
 }

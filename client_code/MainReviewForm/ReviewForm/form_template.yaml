@@ -9,7 +9,7 @@ components:
     layout_properties: {width: 693.91015625}
     name: json_container
     properties:
-      col_spacing: tiny
+      col_spacing: none
       spacing:
         padding: [0, 0, 0, 0]
       spacing_above: none
@@ -18,7 +18,10 @@ components:
     type: ColumnPanel
   layout_properties: {full_width_row: true, grid_position: 'NBMGSD,ZTRLQI'}
   name: grid_review
-  properties: {}
+  properties:
+    gap: none
+    spacing:
+      padding: [null, '50', null, '50']
   type: FlowPanel
 container:
   properties:
