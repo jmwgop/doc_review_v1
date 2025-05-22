@@ -1,4 +1,9 @@
 components:
+- event_bindings: {click: save_btn_click}
+  layout_properties: {grid_position: 'AWUBOU,ASBBXO'}
+  name: save_btn
+  properties: {align: center, text: Save Document}
+  type: form:dep_lin1x4oec0ytd:_Components.Button
 - components:
   - layout_properties: {width: 1308.72290625}
     name: pdf_frame

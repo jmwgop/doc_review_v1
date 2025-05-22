@@ -41,3 +41,13 @@ class ReviewForm(ReviewFormTemplate):
 
     # Render the JSON as editable Anvil components (tables, etc.)
     json_renderer.render_json(payload, self.json_container)
+
+  def save_btn_click(self, **event_args):
+    """Triggered when the Save button is clicked."""
+    try:
+      edited_json = json_renderer.get_final_json(self.json_container)
+      anvil.server.call('save_document_update', self.doc_id, edited_json)
+      alert("Changes saved successfully.", title="Success")
+    except Exception as e:
+      alert(f"Error saving changes: {e}", title="Save Failed")
+    
