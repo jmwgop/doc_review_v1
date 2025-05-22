@@ -1,0 +1,53 @@
+/* theme.css - horizontal scroll fix for FlowPanel "tables" */
+
+.anvil-role-horizontal-scroll,
+.anvil-role-horizontal-scroll > .flow-panel-gutter,
+.anvil-role-horizontal-scroll .flow-panel-gutter {
+  overflow-x: auto !important;
+}
+
+/* Target the gutter directly under the role for max effect */
+.anvil-role-horizontal-scroll > .flow-panel-gutter {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  width: max-content !important;
+}
+
+/* Safety: try to enforce nowrap on the item container too */
+.anvil-role-horizontal-scroll .flow-panel-gutter {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+}
+
+/* The role should allow horizontal overflow from parent */
+.anvil-role-horizontal-scroll {
+  width: 100% !important;
+  min-width: 0 !important;
+  display: block !important;
+}
+
+
+
+.anvil-role-horizontal-scroll > .flow-panel-gutter,
+.anvil-role-horizontal-scroll .flow-panel-gutter {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  width: max-content !important;
+  min-width: 100%;
+  white-space: nowrap !important;
+}
+
+.anvil-role-horizontal-scroll .anvil-flow-panel-item {
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+  min-width: 12em !important;
+  max-width: none !important;
+}
+
+.anvil-role-horizontal-scroll input,
+.anvil-role-horizontal-scroll textarea,
+.anvil-role-horizontal-scroll label {
+  min-width: 12em !important;
+  white-space: nowrap !important;
+  overflow-x: auto !important;
+}
