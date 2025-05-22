@@ -6,23 +6,19 @@ class JsonTableRowForm(JsonTableRowFormTemplate):
     self.init_components(**properties)
     self.container.clear()
 
-    print(f"Row item: {self.item}")  # Confirm it's getting called
-
     if not self.item:
       self.container.add_component(Label(text="(empty row)"))
       return
 
     for key, val in self.item.items():
-      # Handle nested dicts
-      if isinstance(val, dict):
-        val_str = ", ".join(f"{k}: {v}" for k, v in val.items())
-      else:
-        val_str = str(val)
-
       flow = FlowPanel()
       flow.add_component(Label(text=f"{key}:", bold=True))
-      flow.add_component(Label(text=val_str))
+      val_str = ", ".join(f"{k}: {v}" for k, v in val.items()) if isinstance(val, dict) else str(val)
+      if isinstance(val, str) and (len(val) > 80 or '\n' in val):
+        input_widget = TextArea(text=val_str, width="100%")
+      else:
+        input_widget = TextBox(text=val_str, width="100%")
+      flow.add_component(input_widget, width="100%")
       self.container.add_component(flow)
 
-    # This ensures there's vertical space
     self.container.add_component(Spacer(height=10))
