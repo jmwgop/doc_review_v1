@@ -290,7 +290,6 @@ def get_final_json(container):
   """Get the final JSON from the edited form"""
   return unflatten(extract_edited_data(container))
 
-
 # JavaScript helper to extract data from HTML inputs
 def get_table_data_js():
   """JavaScript to extract data from HTML table inputs"""
@@ -318,3 +317,5 @@ def get_table_data_js():
     return data;
   }
   """
+
+  
