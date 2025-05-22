@@ -25,6 +25,9 @@ db_schema:
     - admin_ui: {order: 6, width: 200}
       name: label_override
       type: string
+    - admin_ui: {order: 7, width: 200}
+      name: layout_group
+      type: string
     server: full
     title: config
   documents:
@@ -53,6 +56,9 @@ db_schema:
     - admin_ui: {order: 0, width: 200}
       name: name
       type: string
+    - admin_ui: {order: 1, width: 200}
+      name: structure
+      type: simpleObject
     server: full
     title: schema
 dependencies:

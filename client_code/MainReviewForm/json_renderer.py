@@ -1,10 +1,314 @@
-# json_renderer.py
+# json_renderer.py – layout-aware rendering
+
+"""Client-side utilities to render extracted JSON into editable Anvil
+components, honoring the layout/group definitions stored in the *schema* and
+*config* tables.  Falls back to a legacy renderer if no schema bundle is
+supplied so old documents still display.
+"""
 
 from anvil import *
-from ..HtmlTablePanel import HtmlTablePanel  # Make sure this exists as a Custom HTML Form!
+from ..HtmlTablePanel import HtmlTablePanel
+from collections import defaultdict
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Helper functions
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# inline pop-up editor for long text fields
+# ─────────────────────────────────────────────────────────────
+def _install_popout_editor(widget):
+  """When *widget* (TextArea/TextBox) gains focus, open a big
+    floating editor.  Saves back on OK, discards on Cancel / Esc."""
+  def _open_editor(**evt):
+    # build a large TextArea pre-filled with the current text
+    big = TextArea(text=widget.text, width="100%", height="300px")
+
+    # show it in an Anvil alert dialog
+    ok = alert(big,
+               large=True,
+               title="Edit",
+               buttons=[("Save", True), ("Cancel", False)])
+
+    # if user clicked Save, commit changes
+    if ok:
+      widget.text = big.text
+
+      # return focus to the original widget (nice UX)
+    # widget.focus()
+
+    # bind to focus event; one line per widget
+  widget.set_event_handler("focus", _open_editor)
+
+
+
+
+def dig(data, path_parts):
+  """Safely traverse *data* (a dict) by successive keys in *path_parts*.
+
+    Returns *None* if any intermediate is missing or not a dict.
+    """
+  cur = data
+  for part in path_parts:
+    if isinstance(cur, dict):
+      cur = cur.get(part)
+    else:
+      return None
+  return cur
+
+
+def prettify(path):
+  """Human-friendly label from a JSON path (use last segment)."""
+  return path.split(".")[-1].replace("_", " ").title()
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Public entry
+# ──────────────────────────────────────────────────────────────────────────────
+
+def render_json(payload, container, *, schema_bundle=None):
+  """Render *payload* into *container*.
+
+    If *schema_bundle* (from ConfigService.get_full_schema_bundle) is provided
+    scalars are grouped and laid out per schema; otherwise we dump everything.
+    """
+  if schema_bundle:
+    _render_with_schema(payload, container, schema_bundle)
+  else:
+    _legacy_render(payload, container)
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Schema-aware renderer
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _render_with_schema(payload, container, bundle):
+  layout_spec = bundle.get("structure", {}).get("layout", [])
+  field_cfgs  = bundle.get("fields", [])
+
+  # 1️⃣ Index configs & gather scalar values
+  cfg_by_path = {c["path"]: c for c in field_cfgs if not c.get("excluded")}
+  scalar_values = {p: dig(payload, p.split(".")) for p in cfg_by_path}
+
+  # 2️⃣ Group fields by layout_group
+  grouped = defaultdict(list)
+  for path, val in scalar_values.items():
+    grouped[cfg_by_path[path].get("layout_group") or "_misc"].append(
+      (path, val, cfg_by_path[path])
+    )
+  for g in grouped:
+    grouped[g].sort(key=lambda t: t[0])
+
+    # 3️⃣ Render sections top-to-bottom
+  rendered = set()
+  for section in layout_spec:
+    title = section["title"]
+    style = section.get("style", "two-column")
+    fields = grouped.get(title, [])
+    if not fields:
+      continue
+
+      # Section header
+    container.add_component(Label(text=title, bold=True, font_size=18))
+    container.add_component(Spacer(height=4))
+
+    # Layout container
+    panel = ColumnPanel() if style == "full-width" else FlowPanel()
+    # Layout container
+    if style == "two-column":
+      panel = FlowPanel()
+      panel.role = "json-two-col"
+
+      # build bricks once
+      for path, val, cfg in fields:
+        rendered.add(path)
+
+        brick = ColumnPanel(width="260px")
+        brick.role = "json-two-col-brick"
+        panel.add_component(brick)
+
+        label_txt = cfg.get("label_override") or prettify(path)
+        brick.add_component(Label(text=f"{label_txt}:", bold=True))
+
+        widget_cls = TextArea if cfg["widget_type"] == "TextArea" else TextBox
+        w = widget_cls(text="" if val is None else str(val), width="100%")
+        w.tag = f"field_{path}"
+        w.role = "expand-on-focus"
+        _install_popout_editor(w)             # ← add this
+        brick.add_component(w)
+
+      container.add_component(panel)      # ← add the panel once
+      container.add_component(Spacer(height=12))
+      continue     # 🚀 skip the generic loop below for this section
+    else:
+      panel = ColumnPanel()
+      container.add_component(panel)      # ← add the panel!
+    # Fields
+    for path, val, cfg in fields:
+      rendered.add(path)
+      label_txt = cfg.get("label_override") or prettify(path)
+      panel.add_component(Label(text=f"{label_txt}:", bold=True))
+
+      widget_cls = TextArea if cfg["widget_type"] == "TextArea" else TextBox
+      w = widget_cls(text="" if val is None else str(val), width="100%")
+      w.tag = f"field_{path}"
+      w.role = "expand-on-focus"
+      _install_popout_editor(w)             # ← add this
+      panel.add_component(w)
+      panel.add_component(Spacer(height=4, width=12))
+
+    container.add_component(Spacer(height=12))
+
+    # 4️⃣ Misc group for unrendered scalars
+  misc_paths = [p for p in cfg_by_path if p not in rendered]
+  if misc_paths:
+    container.add_component(Label(text="Misc", bold=True, font_size=18))
+    misc_panel = ColumnPanel()
+    container.add_component(misc_panel)
+    for path in misc_paths:
+      cfg = cfg_by_path[path]
+      label_txt = cfg.get("label_override") or prettify(path)
+      misc_panel.add_component(Label(text=f"{label_txt}:", bold=True))
+      widget_cls = TextArea if cfg["widget_type"] == "TextArea" else TextBox
+      v = scalar_values[path]
+      w = widget_cls(text="" if v is None else str(v), width="100%")
+      w.tag = f"field_{path}"
+      w.role = "expand-on-focus"
+      _install_popout_editor(w)             # ← add this
+      misc_panel.add_component(w)
+      misc_panel.add_component(Spacer(height=4))
+    container.add_component(Spacer(height=12))
+
+    # 5️⃣ Render all tables/lists
+  _render_tables(payload, container)
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Legacy renderer (kept so old docs still work)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _legacy_render(value, container, label=None, _level=0):
+  """Former recursive renderer – used when no schema info is available."""
+  if isinstance(value, (str, int, float, bool)) or value is None:
+    if label:
+      container.add_component(Label(text=f"{label.replace('_',' ').replace('.',' > ').title()}:", bold=True))
+    vstr = "" if value is None else str(value)
+    widget_cls = TextArea if isinstance(value, str) and (len(vstr) > 80 or "\n" in vstr) else TextBox
+    w = widget_cls(text=vstr, width="100%")
+    w.tag = f"field_{label}"
+    w.role = "expand-on-focus"
+    _install_popout_editor(w)             # ← add this
+    container.add_component(w)
+    container.add_component(Spacer(height=5))
+    return
+
+  if isinstance(value, dict):
+    scalars, tables = collect_fields_by_type(value)
+    for p, v in scalars:
+      _legacy_render(v, container, label=p, _level=_level+1)
+    if tables:
+      container.add_component(Spacer(height=20))
+      for p, v in tables:
+        _legacy_render(v, container, label=p, _level=_level+1)
+    return
+
+  if isinstance(value, list):
+    if value and isinstance(value[0], dict):
+      _render_table(label, value, container)
+    else:
+      for item in value:
+        _legacy_render(item, container, _level=_level+1)
+    return
+
+  container.add_component(Label(text=f"(Unrenderable: {repr(value)})"))
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Table helpers (HTML-table rendering)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _render_tables(payload, container):
+  _, tables = collect_fields_by_type(payload)
+  if not tables:
+    return
+  container.add_component(Spacer(height=20))
+  for path, rows in tables:
+    _render_table(path, rows, container)
+
+
+def _render_table(label, rows, container):
+  """Render a list-of-dict rows as an HTML table inside *container*."""
+  flat = [flatten_dict(r) for r in rows]
+  keys = sorted({k for r in flat for k in r})
+  if not keys:
+    return
+
+    # ─── column widths ────────────────────────────────────────────────────
+  col_w = {}
+  for k in keys:
+    w = max(len(k)*10, 120)
+    for r in flat:
+      t = str(r.get(k, ""))
+      w = max(w, 280 if len(t) > 80 or "\n" in t else min(len(t)*8+20, 200))
+    col_w[k] = w
+  total = sum(col_w.values()) + 50
+  min_w = "100%" if len(keys) <= 3 else f"{total}px"
+  layout = "auto" if len(keys) <= 3 else "fixed"
+
+  # ─── stylesheet & skeleton ────────────────────────────────────────────
+  html = [
+    "<style>",
+    ".json-table-container{width:100%;overflow-x:auto;overflow-y:auto;"
+    "border:1px solid #ddd;border-radius:4px;background:#faf9fa;"
+    "margin-bottom:10px;max-height:400px;}",
+    f".json-table{{width:100%;min-width:{min_w};border-collapse:collapse;table-layout:{layout};}}",
+    ".json-table th{background:#f5f5f5;font-weight:bold;position:sticky;top:0;padding:8px;border:1px solid #ddd;text-align:center;}",
+    ".json-table td{padding:8px;border:1px solid #ddd;text-align:center;}",
+  ]
+  for idx, k in enumerate(keys):
+    html.append(
+      f".json-table th:nth-child({idx+1}),.json-table td:nth-child({idx+1}){{{{width:{col_w[k]}px;min-width:{col_w[k]}px;}}}}"
+    )
+  html += [
+    ".json-table tr:nth-child(even){background:#f9f9f9;}",
+    ".json-table input[type='text'],.json-table textarea{width:calc(100% - 8px);border:1px solid #e0e0e0;background:white;font-family:inherit;font-size:inherit;padding:4px;margin:0;text-align:left;}",
+    ".json-table textarea{height:60px;resize:vertical;}",
+    "</style>",
+    "<div class='json-table-container'><table class='json-table'>",
+    "<thead><tr>",
+  ]
+
+  # header row
+  for k in keys:
+    html.append(f"<th>{k.replace('_',' ').title()}</th>")
+  html.append("</tr></thead><tbody>")
+
+  # data rows
+  for i, row in enumerate(flat):
+    html.append("<tr>")
+    for k in keys:
+      cell = str(row.get(k, ""))
+      esc = (cell.replace("&", "&amp;").replace("<", "&lt;")
+        .replace(">", "&gt;").replace("\"", "&quot;"))
+      if len(cell) > 80 or "\n" in cell:
+        inp = f"<textarea data-tag='table_{label}_{i}_{k}'>{esc}</textarea>"
+      else:
+        inp = f"<input type='text' value='{esc}' data-tag='table_{label}_{i}_{k}'/>"
+      html.append(f"<td>{inp}</td>")
+    html.append("</tr>")
+  html.append("</tbody></table></div>")
+
+  # insert into Anvil
+  tbl_panel = HtmlTablePanel()
+  tbl_panel.html = "".join(html)
+
+  title = label.replace('_',' ').replace('.', ' > ').title() if label else "Table"
+  container.add_component(Label(text=f"{title}: {len(rows)} rows", bold=True))
+  container.add_component(Spacer(height=5))
+  container.add_component(tbl_panel)
+  container.add_component(Spacer(height=10))
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Shared helper utilities (unchanged from original version)
+# ──────────────────────────────────────────────────────────────────────────────
 
 def flatten_dict(d, parent_key='', sep='_'):
-  """Flattens a dict, so {'a': {'b': 1}} -> {'a_b': 1}"""
   items = []
   for k, v in d.items():
     new_key = f"{parent_key}{sep}{k}" if parent_key else k
@@ -14,11 +318,8 @@ def flatten_dict(d, parent_key='', sep='_'):
       items.append((new_key, v))
   return dict(items)
 
+
 def collect_fields_by_type(value, parent_key='', scalar_fields=None, table_fields=None):
-  """
-  Recursively collects all scalar fields and table fields from the entire JSON structure.
-  Returns two lists: (scalar_fields, table_fields) with their full paths.
-  """
   if scalar_fields is None:
     scalar_fields = []
   if table_fields is None:
@@ -27,266 +328,43 @@ def collect_fields_by_type(value, parent_key='', scalar_fields=None, table_field
   if isinstance(value, dict):
     for k, v in value.items():
       new_key = f"{parent_key}.{k}" if parent_key else k
-
       if isinstance(v, (str, int, float, bool)) or v is None:
-        # It's a scalar field
         scalar_fields.append((new_key, v))
       elif isinstance(v, list) and v and isinstance(v[0], dict):
-        # It's a table
         table_fields.append((new_key, v))
       elif isinstance(v, dict):
-        # Recurse into nested dict
         collect_fields_by_type(v, new_key, scalar_fields, table_fields)
-      # Skip other types for now
-
   return scalar_fields, table_fields
 
-def render_json(value, container, label=None, _level=0):
-  """
-    Recursively renders JSON into an Anvil container as editable inputs.
-    Args:
-        value: The JSON data (dict, list, or scalar)
-        container: The Anvil container (ColumnPanel, etc.) to add components to
-        label: Optional label for this section
-        _level: (internal) indent level for debug prints
-    """
-  # 1. Scalars (str, int, float, bool, None) - NOW WITH LABELS
-  if isinstance(value, (str, int, float, bool)) or value is None:
-    # Add field label
-    if label:
-      container.add_component(Label(
-        text=f"{label.replace('_', ' ').replace('.', ' > ').title()}:",
-        bold=True
-      ))
-
-    vstr = "" if value is None else str(value)
-    if isinstance(value, str) and (len(value) > 80 or '\n' in value):
-      field = TextArea(text=vstr, width="100%")
-    else:
-      field = TextBox(text=vstr, width="100%")
-
-    # Add tag for data extraction
-    field.tag = f"field_{label}"
-    container.add_component(field)
-    container.add_component(Spacer(height=5))
-    return
-
-  # 2. Dicts - Collect and group ALL fields by type first
-  if isinstance(value, dict):
-    # Only do the type-based grouping at the top level
-    if _level == 0:
-      scalar_fields, table_fields = collect_fields_by_type(value)
-
-      # Render ALL scalar fields first
-      if scalar_fields:
-        for field_path, field_value in scalar_fields:
-          render_json(field_value, container, label=field_path, _level=_level+1)
-
-      # Then render ALL tables
-      if table_fields:
-        container.add_component(Spacer(height=20))
-
-        for table_path, table_value in table_fields:
-          render_json(table_value, container, label=table_path, _level=_level+1)
-    else:
-      # For nested objects, render normally (shouldn't happen much with the new approach)
-      for k, v in value.items():
-        render_json(v, container, label=k, _level=_level+1)
-    return
-
-  # 3. Lists
-  if isinstance(value, list):
-    if value and isinstance(value[0], dict):
-      # ----------- Render as HTML table with editable inputs -----------
-      flat_rows = [flatten_dict(row) for row in value]
-      keys = sorted({k for row in flat_rows for k in row})
-
-      # Analyze content to determine column widths
-      col_widths = {}
-      for key in keys:
-        max_len = len(key) * 10  # Header length as baseline
-        for row in flat_rows:
-          cell_text = str(row.get(key, ""))
-          # Check if this is "long" content
-          if len(cell_text) > 80 or '\n' in cell_text:
-            max_len = max(max_len, 280)  # Wide column for long content
-          else:
-            max_len = max(max_len, min(len(cell_text) * 8 + 20, 200))
-        col_widths[key] = max(max_len, 120)  # Minimum 120px
-
-      # Calculate total width
-      total_width = sum(col_widths.values()) + 50
-
-      # If we have few columns, use more space
-      if len(keys) <= 3:
-        min_table_width = "100%"
-        table_layout = "auto"
-        for key in keys:
-          col_widths[key] = max(col_widths[key], 250)  # Bigger minimum for few columns
-      else:
-        min_table_width = f"{total_width}px"
-        table_layout = "fixed"
-
-      # Build HTML string for the table
-      table_html = f"""
-      <style>
-        .json-table-container {{
-          width: 100%;
-          overflow-x: auto;
-          overflow-y: auto;
-          max-height: 400px;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          background: #faf9fa;
-          margin-bottom: 10px;
-        }}
-        .json-table {{
-          width: 100%;
-          min-width: {min_table_width};
-          border-collapse: collapse;
-          table-layout: {table_layout};
-        }}
-        .json-table th {{
-          background-color: #f5f5f5;
-          font-weight: bold;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-          padding: 8px;
-          border: 1px solid #ddd;
-          text-align: center;
-          vertical-align: middle;
-        }}
-        .json-table td {{
-          padding: 8px;
-          border: 1px solid #ddd;
-          text-align: center;
-          vertical-align: middle;
-        }}
-      """
-
-      # Add specific column widths
-      for idx, key in enumerate(keys):
-        table_html += f"""
-        .json-table th:nth-child({idx + 1}),
-        .json-table td:nth-child({idx + 1}) {{
-          width: {col_widths[key]}px;
-          min-width: {col_widths[key]}px;
-        }}
-        """
-
-      table_html += """
-        .json-table tr:nth-child(even) {
-          background-color: #f9f9f9;
-        }
-        .json-table input[type="text"], .json-table textarea {
-          width: calc(100% - 8px);
-          border: 1px solid #e0e0e0;
-          background: white;
-          font-family: inherit;
-          font-size: inherit;
-          padding: 4px;
-          margin: 0;
-          text-align: left;
-        }
-        .json-table textarea {
-          height: 60px;
-          resize: vertical;
-        }
-      </style>
-      <div class="json-table-container">
-        <table class="json-table">
-      """
-
-      # Header row
-      table_html += '<thead><tr>'
-      for key in keys:
-        display_name = key.capitalize().replace('_', ' ')
-        table_html += f'<th>{display_name}</th>'
-      table_html += '</tr></thead>'
-
-      # Data rows with editable inputs
-      table_html += '<tbody>'
-      for i, row in enumerate(flat_rows):
-        table_html += '<tr>'
-        for key in keys:
-          cell = row.get(key, "")
-          cell_text = str(cell) if cell is not None else ""
-          # Escape HTML in cell content for input value
-          escaped_text = cell_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
-
-          # Choose input type based on content length
-          if len(cell_text) > 80 or '\n' in cell_text:
-            input_element = f'<textarea data-tag="table_{label}_{i}_{key}">{escaped_text}</textarea>'
-          else:
-            input_element = f'<input type="text" value="{escaped_text}" data-tag="table_{label}_{i}_{key}" />'
-
-          table_html += f'<td>{input_element}</td>'
-        table_html += '</tr>'
-      table_html += '</tbody>'
-
-      table_html += '</table></div>'
-
-      # Add the table to the container
-      table_name = label.replace('_', ' ').replace('.', ' > ').title() if label else "Table"
-      container.add_component(Label(text=f"{table_name}: {len(flat_rows)} rows", bold=True))
-      container.add_component(Spacer(height=5))
-      table_panel = HtmlTablePanel()
-      table_panel.html = table_html
-      container.add_component(table_panel)
-      container.add_component(Spacer(height=10))
-
-      return
-    else:
-      for idx, item in enumerate(value):
-        render_json(item, container, _level=_level+1)
-      return
-
-  # Fallback for anything else
-  container.add_component(Label(text=f"(Unrenderable: {repr(value)})"))
-
-
-# ---------- Data extraction helpers ----------
 
 def extract_edited_data(container):
-  """Extract edited data from the form"""
+  """Walk the rendered form and pull out edited scalar & table values."""
   scalars, tables = {}, {}
 
   def walk(c):
-    # Special handling for HtmlTablePanel
     if hasattr(c, 'get_table_data'):
-      # This is our custom HtmlTablePanel with data extraction
-      html_data = c.get_table_data()
-      for tag_str, value in html_data.items():
-        if tag_str and tag_str.startswith('table_'):
-          parts = tag_str.split('_', 3)
-          if len(parts) >= 4:
-            _, tbl, idx_str, key = parts
-            idx = int(idx_str)
-            tables.setdefault(tbl, {}).setdefault(idx, {})[key] = value
-  
-      # Handle regular Anvil components
-    if hasattr(c, "tag") and hasattr(c, "text"):
-      # Convert tag to string - it might be None or a ComponentTag object
-      tag_str = str(c.tag) if c.tag is not None else ""
-  
-      if tag_str.startswith("field_"):
-        scalars[tag_str[6:]] = c.text
-      elif tag_str.startswith("table_"):
-        parts = tag_str.split("_", 3)
-        if len(parts) >= 4:
-          _, tbl, idx_str, key = parts
-          idx = int(idx_str)
-          tables.setdefault(tbl, {}).setdefault(idx, {})[key] = c.text
-  
-      # Recurse through child components
-    if hasattr(c, "get_components"):
+      for tag_str, val in c.get_table_data().items():
+        if tag_str.startswith('table_'):
+          _tag_table_to_dict(tag_str, val, tables)
+
+    if hasattr(c, 'tag') and hasattr(c, 'text'):
+      tag = str(c.tag) if c.tag is not None else ""
+      if tag.startswith('field_'):
+        scalars[tag[6:]] = c.text
+      elif tag.startswith('table_'):
+        _tag_table_to_dict(tag, c.text, tables)
+
+    if hasattr(c, 'get_components'):
       for child in c.get_components():
-          walk(child)
+        walk(child)
+
+  def _tag_table_to_dict(tag_str, value, dest):
+    _, tbl, idx_str, key = tag_str.split('_', 3)
+    idx = int(idx_str)
+    dest.setdefault(tbl, {}).setdefault(idx, {})[key] = value
 
   walk(container)
 
-  # Collapse table rows into ordered lists
   for t_name, rows in tables.items():
     scalars[t_name] = [rows[i] for i in sorted(rows)]
 
@@ -294,11 +372,10 @@ def extract_edited_data(container):
 
 
 def unflatten(flat):
-  """Unflatten a dictionary back to nested structure"""
   nested = {}
   for k, v in flat.items():
-    parts = k.split(".")
     cur = nested
+    parts = k.split('.')
     for p in parts[:-1]:
       cur = cur.setdefault(p, {})
     cur[parts[-1]] = v
@@ -306,34 +383,27 @@ def unflatten(flat):
 
 
 def get_final_json(container):
-  """Get the final JSON from the edited form"""
   return unflatten(extract_edited_data(container))
 
+# JS helper for HtmlTablePanel
 
-# JavaScript helper to extract data from HTML inputs
 def get_table_data_js():
-  """JavaScript to extract data from HTML table inputs"""
   return """
-  function getTableData() {
-    const data = {};
-    
-    // Get all inputs and textareas with data-tag
-    document.querySelectorAll('input[data-tag], textarea[data-tag]').forEach(el => {
-      const tag = el.getAttribute('data-tag');
-      const value = el.value;
-      
-      if (tag.startsWith('table_')) {
-        const parts = tag.split('_');
-        const tableName = parts[1];
-        const rowIndex = parseInt(parts[2]);
-        const colName = parts.slice(3).join('_');
-        
-        if (!data[tableName]) data[tableName] = [];
-        if (!data[tableName][rowIndex]) data[tableName][rowIndex] = {};
-        data[tableName][rowIndex][colName] = value;
-      }
-    });
-    
-    return data;
-  }
-  """
+    function getTableData() {
+      const data = {};
+      document.querySelectorAll('input[data-tag], textarea[data-tag]').forEach(el => {
+        const tag = el.getAttribute('data-tag');
+        const value = el.value;
+        if (tag.startsWith('table_')) {
+          const parts = tag.split('_');
+          const tbl  = parts[1];
+          const idx  = parseInt(parts[2]);
+          const key  = parts.slice(3).join('_');
+          if (!data[tbl]) data[tbl] = [];
+          if (!data[tbl][idx]) data[tbl][idx] = {};
+          data[tbl][idx][key] = value;
+        }
+      });
+      return data;
+    }
+    """
