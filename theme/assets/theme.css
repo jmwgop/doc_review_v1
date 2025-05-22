@@ -1,61 +1,42 @@
-/* theme.css - horizontal scroll fix for FlowPanel "tables" */
-
-.anvil-role-horizontal-scroll,
-.anvil-role-horizontal-scroll > .flow-panel-gutter,
-.anvil-role-horizontal-scroll .flow-panel-gutter {
+.anvil-role-json-table-container {
+  width: 100%;
+  max-width: 98vw;
   overflow-x: auto !important;
+  overflow-y: visible;
+  max-height: 600px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #faf9fa;
+  margin-bottom: 1.5em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
 
-
-.pdf-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
-
-
-/* Target the gutter directly under the role for max effect */
-.anvil-role-horizontal-scroll > .flow-panel-gutter {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  width: max-content !important;
-}
-
-/* Safety: try to enforce nowrap on the item container too */
-.anvil-role-horizontal-scroll .flow-panel-gutter {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-}
-
-/* The role should allow horizontal overflow from parent */
-.anvil-role-horizontal-scroll {
-  width: 100% !important;
-  min-width: 0 !important;
+.anvil-role-json-table-wrapper {
   display: block !important;
+  min-width: 1200px !important;
+  width: max-content !important;
 }
 
-
-
-.anvil-role-horizontal-scroll > .flow-panel-gutter,
-.anvil-role-horizontal-scroll .flow-panel-gutter {
+.anvil-role-json-table-row {
   display: flex !important;
+  flex-direction: row !important;
   flex-wrap: nowrap !important;
   width: max-content !important;
-  min-width: 100%;
-  white-space: nowrap !important;
 }
 
-.anvil-role-horizontal-scroll .anvil-flow-panel-item {
-  white-space: nowrap !important;
-  flex: 0 0 auto !important;
-  min-width: 12em !important;
-  max-width: none !important;
+.anvil-role-json-table-cell {
+  min-width: 160px !important;
+  max-width: 400px;
+  flex: 1 1 0 !important;
+  padding: 12px 10px !important;
+  text-align: center;
+  vertical-align: middle;
+  word-break: break-word;
+  white-space: normal;
+  box-sizing: border-box;
 }
 
-.anvil-role-horizontal-scroll input,
-.anvil-role-horizontal-scroll textarea,
-.anvil-role-horizontal-scroll label {
-  min-width: 12em !important;
-  white-space: nowrap !important;
-  overflow-x: auto !important;
+.anvil-role-json-col-wide {
+  min-width: 260px !important;
+  flex: 3 1 0 !important;
 }

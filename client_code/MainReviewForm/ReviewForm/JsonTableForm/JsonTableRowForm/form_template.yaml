@@ -1,8 +1,0 @@
-components:
-- components: []
-  layout_properties: {}
-  name: container
-  properties: {}
-  type: ColumnPanel
-container: {type: DataRowPanel}
-is_package: true

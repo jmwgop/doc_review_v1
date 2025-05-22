@@ -1,28 +1,25 @@
 components:
 - components:
-  - layout_properties: {col_xs: 1, row: HLIERO, width_xs: 5}
+  - layout_properties: {width: 1308.72290625}
     name: pdf_frame
     properties: {height: 90vh}
     type: form:dep_6g99i7pce7st3:IFrame
-  - data_bindings: []
-    layout_properties: {col_xs: 6, row: HLIERO, width_xs: 5}
+  - components: []
+    data_bindings: []
+    layout_properties: {width: 693.91015625}
     name: json_container
     properties:
-      col_spacing: none
+      col_spacing: tiny
       spacing:
         padding: [0, 0, 0, 0]
       spacing_above: none
       spacing_below: none
       wrap_on: never
     type: ColumnPanel
-  layout_properties: {full_width_row: true, grid_position: 'ADUEGI,SVINGS'}
-  name: review_grid
-  properties:
-    spacing:
-      padding: [0, 0, 0, 0]
-    spacing_above: none
-    spacing_below: none
-  type: GridPanel
+  layout_properties: {full_width_row: true, grid_position: 'NBMGSD,ZTRLQI'}
+  name: grid_review
+  properties: {}
+  type: FlowPanel
 container:
   properties:
     spacing:
