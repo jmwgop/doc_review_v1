@@ -12,7 +12,8 @@
 }
 
 .anvil-role-json-table-wrapper {
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
   min-width: 1200px !important;
   width: max-content !important;
 }
@@ -20,27 +21,32 @@
 .anvil-role-json-table-row {
   display: flex !important;
   flex-direction: row !important;
-  flex-wrap: nowrap !important;  /* This prevents wrapping */
+  flex-wrap: nowrap !important;
   width: max-content !important;
+  align-items: stretch !important;  /* Ensure all cells in row have same height */
 }
-
 
 .anvil-role-json-table-cell {
   min-width: 160px !important;
-  flex: 0 0 160px !important;  /* NO shrinking, fixed 160px */
+  flex: 0 0 160px !important;
   padding: 12px 10px !important;
   text-align: center;
   vertical-align: middle;
   word-break: break-word;
   white-space: normal;
   box-sizing: border-box;
+  border-right: 1px solid #e0e0e0;  /* Add subtle cell borders */
 }
 
 .anvil-role-json-col-wide {
   min-width: 260px !important;
-  flex: 0 0 260px !important;  /* NO shrinking, fixed 260px */
+  flex: 0 0 260px !important;
 }
 
+/* Remove border from last cell in each row */
+.anvil-role-json-table-cell:last-child {
+  border-right: none;
+}
 
 /* Add this to make inputs fill their container width */
 .anvil-role-json-table-cell .anvil-textbox,
@@ -51,6 +57,14 @@
   padding: 4px !important;
   margin: 0 !important;
   text-align: center !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+}
+
+/* Textarea specific styling */
+.anvil-role-json-table-cell .anvil-textarea {
+  min-height: 60px !important;
+  resize: vertical !important;
 }
 
 /* Also add alternating row colors */
@@ -67,4 +81,13 @@
   background-color: #f5f5f5 !important;
   font-weight: bold;
   border-bottom: 2px solid #ddd !important;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+/* Ensure no spacing between FlowPanel children */
+.anvil-role-json-no-spacing > .anvil-container {
+  margin: 0 !important;
+  padding: 0 !important;
 }
