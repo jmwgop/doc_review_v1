@@ -6,6 +6,14 @@
   overflow-x: auto !important;
 }
 
+
+.pdf-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+
 /* Target the gutter directly under the role for max effect */
 .anvil-role-horizontal-scroll > .flow-panel-gutter {
   display: flex !important;

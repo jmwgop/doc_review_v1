@@ -11,6 +11,9 @@ class ReviewForm(ReviewFormTemplate):
 
     self.doc_id = doc_id
 
+    self.pdf_frame.role = "pdf-sticky"
+    self.pdf_frame.height = "100vh"
+    
     if self.doc_id:
       self.load_document(self.doc_id)
 
