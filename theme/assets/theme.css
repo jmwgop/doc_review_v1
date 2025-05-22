@@ -20,13 +20,14 @@
 .anvil-role-json-table-row {
   display: flex !important;
   flex-direction: row !important;
-  flex-wrap: nowrap !important;
+  flex-wrap: nowrap !important;  /* This prevents wrapping */
   width: max-content !important;
 }
 
+
 .anvil-role-json-table-cell {
   min-width: 160px !important;
-  max-width: 400px;
+  flex: 0 0 160px !important;  /* NO shrinking, fixed 160px */
   padding: 12px 10px !important;
   text-align: center;
   vertical-align: middle;
@@ -37,8 +38,9 @@
 
 .anvil-role-json-col-wide {
   min-width: 260px !important;
-  flex: 3 1 0 !important;
+  flex: 0 0 260px !important;  /* NO shrinking, fixed 260px */
 }
+
 
 /* Add this to make inputs fill their container width */
 .anvil-role-json-table-cell .anvil-textbox,
