@@ -50,9 +50,6 @@ def render_json(value, container, label=None, _level=0):
         label: Optional label for this section
         _level: (internal) indent level for debug prints
     """
-  if label is not None:
-    print(f"[RENDER] Section label: {label}")
-
     # 1. Scalars (str, int, float, bool, None) - NOW WITH LABELS
   if isinstance(value, (str, int, float, bool)) or value is None:
     # Add field label
@@ -188,7 +185,6 @@ def render_json(value, container, label=None, _level=0):
       container.add_component(table_panel)
       container.add_component(Spacer(height=10))
 
-      print(f"[DEBUG] Rendered editable HTML table with {len(flat_rows)} rows and {len(keys)} columns")
       return
     else:
       for idx, item in enumerate(value):
@@ -196,5 +192,4 @@ def render_json(value, container, label=None, _level=0):
       return
 
     # Fallback for anything else
-  print("[DEBUG] Unrenderable value encountered, type:", type(value).__name__)
   container.add_component(Label(text=f"(Unrenderable: {repr(value)})"))
