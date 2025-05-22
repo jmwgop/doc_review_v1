@@ -2,8 +2,6 @@
 
 from anvil import *
 from ..HtmlTablePanel import HtmlTablePanel  # Make sure this exists as a Custom HTML Form!
-import re
-
 
 def flatten_dict(d, parent_key='', sep='_'):
   """Flattens a dict, so {'a': {'b': 1}} -> {'a_b': 1}"""
@@ -229,7 +227,6 @@ def render_json(value, container, label=None, _level=0):
 
       table_html += '</table></div>'
 
-      
       # Add the table to the container
       table_name = label.replace('_', ' ').replace('.', ' > ').title() if label else "Table"
       container.add_component(Label(text=f"{table_name}: {len(flat_rows)} rows", bold=True))
@@ -250,43 +247,50 @@ def render_json(value, container, label=None, _level=0):
 
 
 # ---------- Data extraction helpers ----------
+
 def extract_edited_data(container):
-  """
-    Walk the rendered form, pull out all edited values, and return a flat dict.
-
-    * field_…  → scalar values
-    * table_<tableName>_<rowIdx>_<columnKey> → table cells
-    """
-  import re
-
+  """Extract edited data from the form"""
   scalars, tables = {}, {}
-  table_tag_re = re.compile(r"table_(.+)_(\d+)_(.+)")
 
   def walk(c):
-    tag_obj = getattr(c, "tag", None)
-    tag = str(tag_obj) if tag_obj is not None else None
-    if tag and hasattr(c, "text"):
-      if tag.startswith("field_"):
-        scalars[tag[6:]] = c.text
-      elif tag.startswith("table_"):
-        m = table_tag_re.match(tag)
-        if m:
-          tbl, idx_str, key = m.groups()
+    # Special handling for HtmlTablePanel
+    if hasattr(c, 'get_table_data'):
+      # This is our custom HtmlTablePanel with data extraction
+      html_data = c.get_table_data()
+      for tag_str, value in html_data.items():
+        if tag_str and tag_str.startswith('table_'):
+          parts = tag_str.split('_', 3)
+          if len(parts) >= 4:
+            _, tbl, idx_str, key = parts
+            idx = int(idx_str)
+            tables.setdefault(tbl, {}).setdefault(idx, {})[key] = value
+  
+      # Handle regular Anvil components
+    if hasattr(c, "tag") and hasattr(c, "text"):
+      # Convert tag to string - it might be None or a ComponentTag object
+      tag_str = str(c.tag) if c.tag is not None else ""
+  
+      if tag_str.startswith("field_"):
+        scalars[tag_str[6:]] = c.text
+      elif tag_str.startswith("table_"):
+        parts = tag_str.split("_", 3)
+        if len(parts) >= 4:
+          _, tbl, idx_str, key = parts
           idx = int(idx_str)
           tables.setdefault(tbl, {}).setdefault(idx, {})[key] = c.text
-        # Recurse through child components
+  
+      # Recurse through child components
     if hasattr(c, "get_components"):
       for child in c.get_components():
-        walk(child)
+          walk(child)
 
   walk(container)
 
-  # Collapse collected rows into ordered lists
+  # Collapse table rows into ordered lists
   for t_name, rows in tables.items():
     scalars[t_name] = [rows[i] for i in sorted(rows)]
 
   return scalars
-
 
 
 def unflatten(flat):
@@ -304,6 +308,7 @@ def unflatten(flat):
 def get_final_json(container):
   """Get the final JSON from the edited form"""
   return unflatten(extract_edited_data(container))
+
 
 # JavaScript helper to extract data from HTML inputs
 def get_table_data_js():
@@ -332,5 +337,3 @@ def get_table_data_js():
     return data;
   }
   """
-
-  

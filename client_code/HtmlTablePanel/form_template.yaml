@@ -3,7 +3,7 @@ container:
   properties:
     html: |-
       <center style="font-style:italic; color:#888; margin: 3em;">
-        (Insert your custom HTML here)
+        <div anvil-slot="default"></div>
       </center>
       <div anvil-slot="default"></div>
   type: HtmlTemplate
