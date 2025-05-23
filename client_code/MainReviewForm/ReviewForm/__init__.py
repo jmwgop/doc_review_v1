@@ -14,7 +14,7 @@ class ReviewForm(ReviewFormTemplate):
   def __init__(self, doc_id=None, **properties):
 
 
-    self.schema_name = "base_deed"
+    self.schema_name = "base_lease"
     
     self.init_components(**properties)
     self.doc_id = doc_id
