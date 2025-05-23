@@ -12,6 +12,10 @@ class ReviewForm(ReviewFormTemplate):
   #  Constructor
   # ──────────────────────────────────────────────────────────────────────
   def __init__(self, doc_id=None, **properties):
+
+
+    self.schema_name = "base_deed"
+    
     self.init_components(**properties)
     self.doc_id = doc_id
 
@@ -74,14 +78,11 @@ class ReviewForm(ReviewFormTemplate):
       alert("No data found in JSON output.")
       return
 
-    # 4️⃣  pick schema  (hard-coded for now)
-    schema_name = "base_lease"
-
     #    fetch structure + field configs in one call
     try:
-      schema_bundle = anvil.server.call('get_full_schema_bundle', schema_name)
+      schema_bundle = anvil.server.call('get_full_schema_bundle', self.schema_name)
     except Exception as e:
-      alert(f"Could not load schema bundle '{schema_name}': {e}")
+      alert(f"Could not load schema bundle '{self.schema_name}': {e}")
       return
 
     # 5️⃣  render JSON using the layout-aware renderer
